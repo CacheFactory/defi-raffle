@@ -1,29 +1,27 @@
 
 import React from 'react';
 
-import dai from '../dai.png';
+import ethLogo from '../eth-logo.png';
 
 const Main = ({
-  stakingBalance,
-  dappTokenBalance,
-  stakeDaiTokens,
-  daiTokenBalance,
-  unstakeDaiTokens
+  etheriumBalance,
+  addToPool,
+  entries
 }) => {
   const inputRef = React.useRef(null);
 
   const handleSubmit = event => {
     event.preventDefault();
 
-    let amount;
-    amount = inputRef.current.value.toString();
-    amount = window.web3.utils.toWei(amount, 'Ether');
-    stakeDaiTokens(amount);
-  };
 
-  const handleUnstakeClick = () => {
-    unstakeDaiTokens();
+    let amount = inputRef.current.value.toString();
+    amount = window.web3.utils.toWei(amount, 'Ether');
+    addToPool(amount)
   };
+  
+  const poolTotal = entries.reduce(( total, entry) => {
+    return parseFloat(window.web3.utils.fromWei(entry.returnValues._value, 'Ether')) + total
+  }, 0) 
 
   return (
     <div
@@ -32,14 +30,14 @@ const Main = ({
       <table className="table table-borderless text-muted text-center">
         <thead>
           <tr>
-            <th scope="col">Staking Balance (at Token Farm)</th>
-            <th scope="col">Reward Balance (at my wallet)</th>
+            <th scope="col">Ethereum balance</th>
+            
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>{window.web3.utils.fromWei(stakingBalance, 'Ether')} mDAI</td>
-            <td>{window.web3.utils.fromWei(dappTokenBalance, 'Ether')} DAPP</td>
+            <td>{window.web3.utils.fromWei(etheriumBalance, 'Ether')} Eth</td>
+            
           </tr>
         </tbody>
       </table>
@@ -48,16 +46,7 @@ const Main = ({
           <form
             className="mb-3"
             onSubmit={handleSubmit}>
-            <div>
-              <label className="float-left">
-                <b>
-                  Stake Tokens
-                </b>
-              </label>
-              <span className="float-right text-muted">
-                Balance (at my wallet): {window.web3.utils.fromWei(daiTokenBalance, 'Ether')}
-              </span>
-            </div>
+            
             <div className="input-group mb-4">
               <input
                 type="text"
@@ -68,24 +57,39 @@ const Main = ({
               <div className="input-group-append">
                 <div className="input-group-text">
                   <img
-                    src={dai}
+                    src={ethLogo}
                     height="32"
                     alt="" />
-                  &nbsp;&nbsp;&nbsp; mDAI
+                  &nbsp;&nbsp;&nbsp; ETH
                 </div>
               </div>
             </div>
             <button
               type="submit"
               className="btn btn-primary btn-block btn-lg">
-              STAKE!
+              Join Pool
             </button>
           </form>
-          <button
-            className="btn btn-link btn-block btn-sm"
-            onClick={handleUnstakeClick}>
-            UN-STAKE...
-          </button>
+          <h3>Pool total {poolTotal} ETH</h3>
+          <h3>Entries</h3>
+        <table className="table table-borderless " style={{fontSize: 10}}>
+        <thead>
+          <tr>
+            <th >Address</th>
+            <th >Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+          { entries.map((entry) => {
+            return <tr><td>{entry.returnValues._from}</td> <td>{window.web3.utils.fromWei(entry.returnValues._value, 'Ether')} ETH</td></tr>
+          }) }
+            
+          </tr>
+        </tbody>
+      </table>
+
+          
         </div>
       </div>
     </div>

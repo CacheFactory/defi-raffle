@@ -13,8 +13,10 @@ module.exports = {
   },
   contracts_directory: './src/contracts/',
   contracts_build_directory: './src/built-contracts/',
+  sourceFetchers: ["sourcify", "etherscan"], 
   compilers: {
     solc: {
+      version: '0.6.6',
       optimizer: {
         enabled: true,
         runs: 200
