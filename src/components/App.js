@@ -4,20 +4,23 @@ import Web3 from 'web3';
 
 
 import Raffle from '../built-contracts/Raffle.json';
-// import DaiToken from '../built-contracts/DaiToken.json';
-// import DappToken from '../built-contracts/DappToken.json';
-// import TokenFarm from '../built-contracts/TokenFarm.json';
 import Navbar from './Navbar';
 import Main from './Main';
 import './App.css';
 
-const CONTRACT_ADDRESS = '0x44C8FBB1C84fB84c0B9C0461a42524e08FdC9219'
+const CONTRACT_ADDRESS = '0xd6D15d2d887b5CEa1eF121B832e4596926b82405'
 
 const loadWeb3 = async () => {
   try {
     if (window.ethereum) {
       window.web3 = new Web3(window.ethereum);
       await window.ethereum.enable();
+      const networkId = await window.web3.eth.net.getId();
+
+      if (networkId != 42) {
+        alert('App only works on the Kovan test network')
+      }
+     
     } else if (window.web3) {
       window.web3 = new Web3(window.web3.currentProvider);
     } else {
@@ -30,17 +33,13 @@ const loadWeb3 = async () => {
 
 const App = () => {
   const [account, setAccount] = React.useState('0x0');
-
-  // const [daiToken, setDaiToken] = React.useState(null);
-  // const [dappToken, setDappToken] = React.useState(null);
-
   const [entries, setEntries] = React.useState([]);
-
+  const [winners, setWinners] = React.useState([]);
   const [ethBalance, setEthBalance] = React.useState('0');
-  // const [dappTokenBalance, setDappTokenBalance] = React.useState('0');
-  // const [stakingBalance, setStakingBalance] = React.useState('0');
-
   const [loading, setLoading] = React.useState(true);
+  const [poolTotal, setPoolTotal] = React.useState(true);
+  const [pending, setPending] = React.useState(false);
+  const [nextRunDate, setNextRunDate] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -50,15 +49,49 @@ const App = () => {
     })();
   }, []);
 
+  const blockchainUpdate = (error, sync) => {
+    loadContractData()
+  }
+
   const loadContractData = async () => {
     const raffle = new window.web3.eth.Contract(Raffle, CONTRACT_ADDRESS);
+
+    const runNumber = await raffle.methods.runNumber().call()
+    setPoolTotal(window.web3.utils.fromWei(await window.web3.eth.getBalance(CONTRACT_ADDRESS), 'Ether') )
+    setNextRunDate(await raffle.methods.nextRunDate().call() )
     
-    raffle.getPastEvents('NewAddress', { fromBlock: 0, toBlock: 'latest' }, (error, eventResults) => {
+    raffle.getPastEvents('NewWinner', { fromBlock: 0, toBlock: 'latest' }, async (error, eventResults) => {
       
-      if (error)
+      if (error) {
         console.log('Error in NewAddress event handler: ' + error);
-      else
-        setEntries(eventResults)
+      }
+      else {
+        for(const event of eventResults) {
+          event.timestamp = new Date(0)
+          const timestamp = (await window.web3.eth.getBlock(event.blockNumber)).timestamp
+          event.timestamp.setUTCSeconds(timestamp);
+        }
+        
+      }
+      
+      setWinners(eventResults)
+    });
+    
+    raffle.getPastEvents('NewAddress', { fromBlock: 0, toBlock: 'latest', filter: {_runNumber: runNumber}, }, async (error, eventResults) => {
+      
+      if (error) {
+        console.log('Error in NewAddress event handler: ' + error);
+      }
+      else {
+        for(const event of eventResults) {
+          event.timestamp = new Date(0)
+          const timestamp = (await window.web3.eth.getBlock(event.blockNumber)).timestamp
+          event.timestamp.setUTCSeconds(timestamp);
+        }
+        
+      }
+      
+      setEntries(eventResults)
     });
 
   }
@@ -73,41 +106,10 @@ const App = () => {
 
       const ethBalance = await web3.eth.getBalance(firstAccount)
       setEthBalance(ethBalance)
-      const networkId = await web3.eth.net.getId();
+      
 
-      //setDaiTokenBalance(theDaiTokenBalance.toString());
-      // // Load DaiToken
-      // const daiTokenData = DaiToken.networks[networkId];
-      // if(daiTokenData) {
-      //   const theDaiToken = new web3.eth.Contract(DaiToken.abi, daiTokenData.address);
-      //   setDaiToken(theDaiToken);
-      //   const theDaiTokenBalance = await theDaiToken.methods.balanceOf(firstAccount).call();
-      //   setDaiTokenBalance(theDaiTokenBalance.toString());
-      // } else {
-      //   window.alert('DaiToken contract not deployed to detected network.');
-      // }
-
-      // // Load DappToken
-      // const dappTokenData = DappToken.networks[networkId];
-      // if(dappTokenData) {
-      //   const theDappToken = new web3.eth.Contract(DappToken.abi, dappTokenData.address);
-      //   setDappToken(theDappToken);
-      //   const theDappTokenBalance = await theDappToken.methods.balanceOf(firstAccount).call();
-      //   setDappTokenBalance(theDappTokenBalance);
-      // } else {
-      //   window.alert('DappToken contract not deployed to detected network.');
-      // }
-
-      // // Load TokenFarm
-      // const tokenFarmData = TokenFarm.networks[networkId];
-      // if(tokenFarmData) {
-      //   const theTokenFarm = new web3.eth.Contract(TokenFarm.abi, tokenFarmData.address);
-      //   setTokenFarm(theTokenFarm);
-      //   const theStakingBalance = await theTokenFarm.methods.stakingBalance(firstAccount).call();
-      //   setStakingBalance(theStakingBalance);
-      // } else {
-      //   window.alert('TokenFarm contract not deployed to detected network.');
-      // }
+      web3.eth.subscribe('newBlockHeaders', blockchainUpdate);
+      
     } catch (error) {
       console.log('[handleLoadBlockchainData] error.message => ', error.message);
     } finally {
@@ -115,85 +117,19 @@ const App = () => {
     }
   };
 
-  // const handleStakeDaiTokens = async amount => {
-  //   try {
-  //     setLoading(true);
-  //     await daiToken.methods
-  //       .approve(tokenFarm._address, amount)
-  //       .send({ from: account });
-  //     await tokenFarm.methods
-  //       .stakeDaiTokens(amount)
-  //       .send({ from: account });
-
-  //     handleDaiTokenDataChange();
-  //     handleDappTokenDataChange();
-  //     handleTokenFarmDataChange();
-  //   } catch (error) {
-  //     console.log('[handleStakeTokens] error.message => ', error.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const handleUnstakeDaiTokens = async () => {
-  //   try {
-  //     setLoading(true);
-  //     await tokenFarm.methods
-  //       .unstakeDaiTokens()
-  //       .send({ from: account });
-      
-  //     handleDaiTokenDataChange();
-  //     handleDappTokenDataChange();
-  //     handleTokenFarmDataChange();
-  //   } catch (error) {
-  //     console.log('[handleUnstakeTokens] error.message => ', error.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const handleDaiTokenDataChange = async () => {
-  //   try {
-  //     const theDaiTokenBalance = await daiToken.methods.balanceOf(account).call();
-  //     setDaiTokenBalance(theDaiTokenBalance.toString());
-  //   } catch (error) {
-  //     console.log('[handleDaiTokenDataChange] error.message => ', error.message);
-  //   }
-  // };
-
-  // const handleDappTokenDataChange = async () => {
-  //   try {
-  //     const theDappTokenBalance = await dappToken.methods.balanceOf(account).call();
-  //     setDappTokenBalance(theDappTokenBalance.toString());
-  //   } catch (error) {
-  //     console.log('[handleDappTokenDataChange] error.message => ', error.message);
-  //   }
-  // };
-
-  // const handleTokenFarmDataChange = async () => {
-  //   try {
-  //     const theStakingBalance = await tokenFarm.methods.stakingBalance(account).call();
-  //     setStakingBalance(theStakingBalance.toString());
-  //   } catch (error) {
-  //     console.log('[handleTokenFarmDataChange] error.message => ', error.message);
-  //   }
-  // };
 
   const addToPool = async (amountInWei) => {
     try {
-
+      setPending(true)
       const web3 = window.web3;
-      const networkId = await web3.eth.net.getId();
-
-      //let raffleData = Raffle.networks[networkId];
       
       const raffle = new web3.eth.Contract(Raffle, CONTRACT_ADDRESS);
-      // debugger
-      // const result = await raffle.methods.entries().call()
+   
       const result = await raffle.methods.addAddress().send({value: amountInWei, from: account})
+      setPending(false)
       
-
     } catch (error) {
+      setPending(false)
       console.log('error.message => ', error.message);
     }
   };
@@ -207,6 +143,11 @@ const App = () => {
         etheriumBalance={ethBalance}
         entries={entries}
         addToPool={addToPool}
+        poolTotal={poolTotal}
+        pending={pending}
+        winners={winners}
+        nextRunDate={nextRunDate}
+        account={account}
         />
     );
   }

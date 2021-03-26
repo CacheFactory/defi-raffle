@@ -2,22 +2,28 @@
 
 pragma solidity 0.6.6;
 
-import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
-//import "@chainlink/contracts/src/v0.4/Chainlinked.sol";
+import "https://raw.githubusercontent.com/smartcontractkit/chainlink/master/evm-contracts/src/v0.6/VRFConsumerBase.sol";
 
 contract RandomNumberConsumer is VRFConsumerBase {
     
     bytes32 internal keyHash;
     uint256 internal fee;
-    
+    int public entryCount;
     uint256 public randomResult;
-    
+    address payable winningAddress;
+    address payable owner;
+    int public runNumber;
+    uint256 public nextRunDate;
 
     struct  Entry {
         address payable adr;
         uint256 amount;
     }
+    
     Entry[] public entries;
+  
+    event NewAddress(address _from, uint256 _value, int indexed _runNumber);
+    event NewWinner(address _from, uint256 _value, int indexed _runNumber);
     
     /**
      * Constructor inherits VRFConsumerBase
@@ -35,6 +41,9 @@ contract RandomNumberConsumer is VRFConsumerBase {
     {
         keyHash = 0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4;
         fee = 0.1 * 10 ** 18; // 0.1 LINK
+        owner = 0x666eCA3575077E28CE77eA6a454Dbd47ec33E778;
+        runNumber = 0;
+        nextRunDate = now + (60 * 60 * 24);
     }
     
     
@@ -47,11 +56,15 @@ contract RandomNumberConsumer is VRFConsumerBase {
             adr: msg.sender,
             amount: amount
         }));
+        
+        entryCount = entryCount + 1;
+        
+        emit NewAddress(msg.sender, msg.value, runNumber);
     }
     
- 
      
     function runEntries(uint256 userProvidedSeed) public returns (bytes32 requestId) {
+        require(owner == msg.sender);
         require(LINK.balanceOf(address(this)) > fee, "Not enough LINK - fill contract with faucet");
         return requestRandomness(keyHash, fee, userProvidedSeed);
     }
@@ -68,26 +81,24 @@ contract RandomNumberConsumer is VRFConsumerBase {
         }
         
         uint256 winningNumber = randomness % totalAmount;
-        address payable winningAddress;
-        
+        uint256 runningAmount = 0;
         for (uint i=0; i<entries.length; i++) {
-          totalAmount = totalAmount + entries[i].amount;
-          if (winningNumber <= totalAmount) {
+          runningAmount = runningAmount + entries[i].amount;
+          if (runningAmount >= winningNumber ) {
               winningAddress = entries[i].adr;
               break;
           }
+          
         }
+        
+        owner.transfer(address(this).balance / 100);
+        
+        emit NewWinner(winningAddress, address(this).balance, runNumber);
+        
         winningAddress.transfer(address(this).balance);
-
+        runNumber = runNumber + 1;
+        nextRunDate = now + (60 * 60 * 24);
+        delete entries;
     }
     
-    /**
-     * Withdraw LINK from this contract
-     * 
-     * DO NOT USE THIS IN PRODUCTION AS IT CAN BE CALLED BY ANY ADDRESS.
-     * THIS IS PURELY FOR EXAMPLE PURPOSES.
-     */
-    function withdrawLink() external {
-        require(LINK.transfer(msg.sender, LINK.balanceOf(address(this))), "Unable to transfer");
-    }
 }

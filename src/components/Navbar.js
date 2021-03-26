@@ -11,7 +11,7 @@ const Navbar = ({ account }) => (
       target="_blank"
       rel="noopener noreferrer">
       
-      &nbsp; Ethereum Raffle
+      &nbsp; Ethereum Pool
     </a>
     <ul className="navbar-nav px-3">
       <li className="nav-item text-nowrap d-none d-sm-none d-sm-block">
