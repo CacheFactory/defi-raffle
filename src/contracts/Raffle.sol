@@ -8,22 +8,37 @@ contract RandomNumberConsumer is VRFConsumerBase {
     
     bytes32 internal keyHash;
     uint256 internal fee;
-    int public entryCount;
-    uint256 public randomResult;
-    address payable winningAddress;
     address payable owner;
-    int public runNumber;
-    uint256 public nextRunDate;
+    uint poolCount;
 
     struct  Entry {
         address payable adr;
         uint256 amount;
     }
     
-    Entry[] public entries;
+    struct Pool {
+        int  entryCount;
+        uint256  randomResult;
+        address payable winningAddress;
+        address payable owner;
+        uint256  nextRunDate;
+        Entry[]  entries;
+        uint ownerPercentFee;
+        bool active;
+        bytes16 title; 
+        uint256 index;
+        uint256 poolTotal;
+    }
+    
+    uint256 public contractOwnerFee;
+    
+    mapping(uint => Pool) public pools;
+    
+    mapping(bytes32 => uint256) private randomMappings;
   
-    event NewAddress(address _from, uint256 _value, int indexed _runNumber);
-    event NewWinner(address _from, uint256 _value, int indexed _runNumber);
+    event NewAddress(address _from, uint256 _value, uint256 indexed _poolIndex);
+    event NewWinner(address _winner, uint256 _value, bytes16 _title);
+    event NewPool(uint256 _nextRunDate, bytes16 _title, uint256 indexed _poolIndex);
     
     /**
      * Constructor inherits VRFConsumerBase
@@ -42,63 +57,97 @@ contract RandomNumberConsumer is VRFConsumerBase {
         keyHash = 0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4;
         fee = 0.1 * 10 ** 18; // 0.1 LINK
         owner = 0x666eCA3575077E28CE77eA6a454Dbd47ec33E778;
-        runNumber = 0;
-        nextRunDate = now + (60 * 60 * 24);
+        poolCount = 0;
+    }
+    
+    function addPool(uint256 _nextRunDate, uint _ownerPercentFee, bytes16 _title) public payable {
+        require(_ownerPercentFee < 99, "owner fee is too high")
+        poolCount = poolCount + 1;
+        Pool storage _pool = pools[poolCount];
+        
+        _pool.owner = msg.sender;
+        _pool.nextRunDate= _nextRunDate;
+        _pool.ownerPercentFee = _ownerPercentFee;
+        _pool.title = _title;
+        _pool.active = true;
+        _pool.index = poolCount;
+      
+        emit NewPool(_nextRunDate, _title, poolCount);
     }
     
     
-    function addAddress() public payable {
-
+    function addAddress(uint256 poolIndex) public payable {
         uint256 amount =  msg.value;
         require(amount > 0, "You need to send some Ether");
-
-        entries.push(Entry({
+        Pool memory _memPool = pools[poolIndex];
+        
+        require(_memPool.active == true, "Pool must be active");
+        
+        pools[poolIndex].entries.push(Entry({
             adr: msg.sender,
             amount: amount
         }));
         
-        entryCount = entryCount + 1;
+        pools[poolIndex].entryCount = pools[poolIndex].entryCount + 1;
+        pools[poolIndex].poolTotal = pools[poolIndex].poolTotal + amount;
         
-        emit NewAddress(msg.sender, msg.value, runNumber);
+        emit NewAddress(msg.sender, amount, poolIndex);
     }
     
      
-    function runEntries(uint256 userProvidedSeed) public returns (bytes32 requestId) {
-        require(owner == msg.sender);
+    function runEntries(uint256 userProvidedSeed, uint256 poolIndex) public{
+        Pool memory pool = pools[poolIndex];
+        
+        require(pool.nextRunDate < now || owner == msg.sender, "Pool can only be ran past the run date");
+        
         require(LINK.balanceOf(address(this)) > fee, "Not enough LINK - fill contract with faucet");
-        return requestRandomness(keyHash, fee, userProvidedSeed);
+        bytes32 requestId = requestRandomness(keyHash, fee, userProvidedSeed);
+        randomMappings[requestId] = poolIndex;
     }
 
     /**
      * Callback function used by VRF Coordinator
      */
-    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        randomResult = randomness;
+    function fulfillRandomness(bytes32 requestId, uint256 randomResult) internal override {
+        Pool memory _memPool = pools[randomMappings[requestId]];
         
         uint256 totalAmount = 0;
-        for (uint i=0; i<entries.length; i++) {
-          totalAmount = totalAmount + entries[i].amount;
+        for (uint i=0; i<_memPool.entries.length; i++) {
+          totalAmount = totalAmount + _memPool.entries[i].amount;
         }
         
-        uint256 winningNumber = randomness % totalAmount;
+        uint256 winningNumber = randomResult % totalAmount;
         uint256 runningAmount = 0;
-        for (uint i=0; i<entries.length; i++) {
-          runningAmount = runningAmount + entries[i].amount;
+        for (uint i=0; i<_memPool.entries.length; i++) {
+          runningAmount = runningAmount + _memPool.entries[i].amount;
           if (runningAmount >= winningNumber ) {
-              winningAddress = entries[i].adr;
+              _memPool.winningAddress = _memPool.entries[i].adr;
               break;
           }
-          
         }
         
-        owner.transfer(address(this).balance / 100);
+        uint256 _localContractOwnerFee = totalAmount / 100;
+        contractOwnerFee += _localContractOwnerFee;
+
+        totalAmount = totalAmount - _localContractOwnerFee;
         
-        emit NewWinner(winningAddress, address(this).balance, runNumber);
+        uint256 ownerFee = totalAmount / (_memPool.ownerPercentFee * 100);
+        _memPool.owner.transfer(ownerFee);
+        totalAmount = totalAmount - ownerFee;
         
-        winningAddress.transfer(address(this).balance);
-        runNumber = runNumber + 1;
-        nextRunDate = now + (60 * 60 * 24);
-        delete entries;
+        emit NewWinner(_memPool.winningAddress, totalAmount, _memPool.title);
+        
+        _memPool.winningAddress.transfer(totalAmount);
+        pools[_memPool.index].active = false;
+        
+        delete pools[_memPool.index];
+        delete randomMappings[requestId];
+    }
+    
+    function withdraw() public {
+        require(owner == msg.sender);
+        owner.transfer(contractOwnerFee);
+        contractOwnerFee = 0;
     }
     
 }

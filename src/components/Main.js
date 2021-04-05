@@ -11,9 +11,16 @@ const Main = ({
   pending,
   winners,
   nextRunDate,
-  account
+  account,
+  activePools,
+  createNewPool,
+  loadPool,
+  pendingNewPool
 }) => {
   const inputRef = React.useRef(null);
+  const nextRunRef = React.useRef(null);
+  const percentFeeRef = React.useRef(null);
+  const titleRef = React.useRef(null);
 
   const handleSubmit = event => {
     event.preventDefault();
@@ -21,6 +28,11 @@ const Main = ({
     amount = window.web3.utils.toWei(amount, 'Ether');
     addToPool(amount)
   };
+
+  const handleCreatePoolSubmit = (event) => {
+    event.preventDefault();
+    createNewPool(nextRunRef.current.value.toString(), percentFeeRef.current.value.toString(), titleRef.current.value.toString())
+  }
 
   const d = new Date(0)
   d.setUTCSeconds(nextRunDate);
@@ -58,82 +70,93 @@ const Main = ({
         <div className="card-body">
           <form
             className="mb-3"
-            onSubmit={handleSubmit}>
+            onSubmit={handleCreatePoolSubmit}>
 
-            <div className="input-group mb-4">
-              <input
-                type="text"
-                ref={inputRef}
-                className="form-control form-control-lg"
-                placeholder="0"
-                required />
-              <div className="input-group-append">
-                <div className="input-group-text">
-                  <img
-                    src={ethLogo}
-                    height="32"
-                    alt="" />
-                  &nbsp;&nbsp;&nbsp; ETH
-                </div>
+
+            <div class="form-group row">
+              <label for="staticEmail" class="col-sm-6 col-form-label">Title</label>
+              <div class="col-sm-6">
+                <input
+                  type="text"
+                  ref={titleRef}
+                  className="form-control "
+                  placeholder="title"
+                  required />
               </div>
             </div>
+
+
+            <div class="form-group row">
+              <label for="staticEmail" class="col-sm-6 col-form-label">Run no earlier than date</label>
+              <div class="col-sm-6">
+                <input
+                  type="date"
+                  ref={nextRunRef}
+                  className="form-control "
+                  placeholder="min run date"
+                  required />
+              </div>
+            </div>
+
+            <div class="form-group row">
+              <label for="staticEmail" class="col-sm-6 col-form-label">Percent fee of pool to creator</label>
+              <div class="col-sm-6">
+                <input
+                  type="number"
+                  ref={percentFeeRef}
+                  className="form-control "
+                  placeholder="percent fee to pool creator"
+                  required />
+              </div>
+            </div>
+
             <button
               type="submit"
-              disabled={pending}
+              disabled={pendingNewPool }
               className="btn btn-primary btn-block btn-lg">
-              {pending ? 'Pending transaction' : 'Join Pool'}
+              {pendingNewPool ? 'Creating pool...' : 'Create new pool'}
             </button>
           </form>
-          <h1 style={{ textAlign: 'center' }}>Active Pool Total</h1>
-          <h2 style={{ textAlign: 'center' }}>{poolTotal} ETH</h2>
-          <hr />
-          <h1 style={{ textAlign: 'center' }}>Next drawing</h1>
-          <h2 style={{ textAlign: 'center' }}>{days}d {hours}h {minutes}m</h2>
 
 
 
-          <h3>Active Entries</h3>
+
+          <h3>Most Recent Pools</h3>
           <table className="table table-borderless " style={{ fontSize: 10 }}>
             <thead>
               <tr>
                 <th scope="col">#</th>
-                <th scope="col">Address</th>
-                <th scope="col">Value</th>
-                <th scope="col" >Winning Chance</th>
+                <th scope="col">title</th>
+                <th scope="col">Created at</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody>
 
-              {_.reverse(entries).map((entry, i) => {
-                return <tr><th scope="row">{i + 1}</th><td>
-                  <div className='truncate' title={entry.returnValues._from}> {entry.returnValues._from == account ? 'You' : entry.returnValues._from} </div>
-                </td> <td>{window.web3.utils.fromWei(entry.returnValues._value, 'Ether')} ETH</td> <td>{(window.web3.utils.fromWei(entry.returnValues._value, 'Ether') / poolTotal * 100).toFixed(2)}% </td> </tr>
+              {_.reverse(activePools).map((entry, i) => {
+                return <tr>
+                  <th scope="row">{i + 1}</th>
+                  <td>
+                    {window.web3.utils.hexToAscii(entry.returnValues._title)}
+
+                  </td>
+
+                  <td>
+
+                    {entry.timestamp.toDateString()}
+                  </td>
+
+                  <td>
+                    <button className="btn btn-warning btn-sm" onClick={loadPool.bind(this, entry.returnValues._poolIndex)}>View</button>
+                  </td>
+
+                </tr>
               })}
 
 
             </tbody>
           </table>
 
-          <h3>Past winners</h3>
-          <table className="table table-borderless " style={{ fontSize: 10 }}>
-            <thead>
-              <tr>
-                <th >Address</th>
-                <th >Value</th>
-                <th >Date</th>
-              </tr>
-            </thead>
-            <tbody>
-
-              {_.filter(winners).map((entry) => {
-
-                //const blockData = await window.web3.eth.getBlock(entry.blockNumber)
-                return <tr><td> <div title={entry.returnValues._from} className='truncate'> {entry.returnValues._from == account ? 'You' : entry.returnValues._from} </div> </td> <td > {window.web3.utils.fromWei(entry.returnValues._value, 'Ether')} ETH</td><td> {entry.timestamp.toDateString()} </td></tr>
-              })}
-
-
-            </tbody>
-          </table>
 
 
 
