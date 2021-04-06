@@ -1,8 +1,7 @@
 
 import React from 'react';
 import Web3 from 'web3';
-
-
+import _ from 'lodash';
 import Raffle from '../built-contracts/Raffle.json';
 import Navbar from './Navbar';
 import Main from './Main';
@@ -11,7 +10,7 @@ import './App.css';
 
 let initialPoolId;
 
-const CONTRACT_ADDRESS = '0x110ad08406dA998c66d1870cb57A1183477E5D20'
+const CONTRACT_ADDRESS = '0x2737da347dB5CBd5318E6026c4c158f481b066Ef'
 
 const loadWeb3 = async () => {
   try {
@@ -44,7 +43,7 @@ const App = () => {
 
   const [account, setAccount] = React.useState('0x0');
   const [entries, setEntries] = React.useState([]);
-  const [winners, setWinners] = React.useState([]);
+  //const [winners, setWinners] = React.useState([]);
   const [ethBalance, setEthBalance] = React.useState('0');
   const [loading, setLoading] = React.useState(true);
   const [pending, setPending] = React.useState(false);
@@ -75,28 +74,6 @@ const App = () => {
   const loadContractData = async () => {
     const raffle = new window.web3.eth.Contract(Raffle, CONTRACT_ADDRESS);
 
-    
-
-    // const runNumber = await raffle.methods.runNumber().call()
-    // setPoolTotal(window.web3.utils.fromWei(await window.web3.eth.getBalance(CONTRACT_ADDRESS), 'Ether') )
-    // setNextRunDate(await raffle.methods.nextRunDate().call() )
-    
-    raffle.getPastEvents('NewWinner', { fromBlock: 0, toBlock: 'latest' }, async (error, eventResults) => {
-      
-      if (error) {
-        console.log('Error in NewAddress event handler: ' + error);
-      }
-      else {
-        for(const event of eventResults) {
-          event.timestamp = new Date(0)
-          const timestamp = (await window.web3.eth.getBlock(event.blockNumber)).timestamp
-          event.timestamp.setUTCSeconds(timestamp);
-        }
-        
-      }
-      setWinners(eventResults)
-    });
-    
     raffle.getPastEvents('NewPool', { fromBlock: 0, toBlock: 'latest' }, async (error, eventResults) => {
       
       if (error) {
@@ -129,7 +106,20 @@ const App = () => {
     pool.index = poolId
 
     window.history.pushState({}, '', '/'+poolId);
+    if (!pool.active) {
+      await raffle.getPastEvents('NewWinner', { fromBlock: 0, toBlock: 'latest', filter: {_poolIndex: poolId} }, async (error, eventResults) => {
       
+        if (error) {
+          console.log('Error in NewAddress event handler: ' + error);
+        }
+        else {
+          pool.winner = eventResults
+        }
+        
+      });
+    }
+    
+
     setCurrentPool(pool)
 
   }
@@ -193,8 +183,8 @@ const App = () => {
       const web3 = window.web3;
       
       const raffle = new web3.eth.Contract(Raffle, CONTRACT_ADDRESS);
-
-      const result = await raffle.methods.addPool(date.getTime(), ownerPercentFee, web3.utils.fromAscii(title)).send({ from: account})
+      
+      const result = await raffle.methods.addPool(date.getTime()/1000, ownerPercentFee, web3.utils.fromAscii(title)).send({ from: account})
       setPendingNewPool(false)
       await loadContractData();
       
@@ -218,12 +208,10 @@ const App = () => {
         etheriumBalance={ethBalance}
         entries={entries}
         addToPool={addToPool}
-        
-        winners={winners}
         nextRunDate={nextRunDate}
         account={account}
         createNewPool={createNewPool}
-        activePools={activePools}
+        activePools={_.reverse(activePools)}
         loadPool={loadPool}
         pendingNewPool={pendingNewPool}
         />
@@ -237,16 +225,16 @@ const App = () => {
       {
         currentPool && 
 
-        <div id="exampleModalCenter" class="modal fade show" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" style={{display:'block', backgroundColor: 'rgba(0,0,100,0.6)'}}>
-        <div class="modal-dialog modal-dialog-centered" role="document">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="exampleModalCenterTitle">{window.web3.utils.hexToAscii(currentPool.title)}</h5>
-              <button type="button" class="close" onClick={closeModal} aria-label="Close">
+        <div id="exampleModalCenter" className="modal fade show" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" style={{display:'block', backgroundColor: 'rgba(0,0,100,0.6)'}}>
+        <div className="modal-dialog modal-dialog-centered" role="document">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="exampleModalCenterTitle">{window.web3.utils.hexToAscii(currentPool.title)}</h5>
+              <button type="button" className="close" onClick={closeModal} aria-label="Close">
                 <span aria-hidden="true">×</span>
               </button>
             </div>
-            <div class="modal-body">
+            <div className="modal-body">
               <Pool 
                 addToPool={addToPool}
                 pool={currentPool}
@@ -255,28 +243,14 @@ const App = () => {
                 account={account}
               />
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" onClick={closeModal} data-dismiss="modal">Close</button>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={closeModal} data-dismiss="modal">Close</button>
             </div>
           </div>
         </div>
       </div>
 
       }
-      
-
-        <div className="row">
-          <main role="main" className="col-lg-12 ml-auto mr-auto" style={{ maxWidth: '600px' }}>
-            <div className="content mr-auto ml-auto">
-              <a
-                href="http://www.dappuniversity.com/bootcamp"
-                target="_blank"
-                rel="noopener noreferrer">
-              </a>
-              {content}
-            </div>
-          </main>
-        </div>
       </div>
     </div>
   );

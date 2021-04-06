@@ -28,6 +28,7 @@ contract RandomNumberConsumer is VRFConsumerBase {
         bytes16 title; 
         uint256 index;
         uint256 poolTotal;
+        uint256 winningAmount;
     }
     
     uint256 public contractOwnerFee;
@@ -39,6 +40,7 @@ contract RandomNumberConsumer is VRFConsumerBase {
     event NewAddress(address _from, uint256 _value, uint256 indexed _poolIndex);
     event NewWinner(address _winner, uint256 _value, bytes16 _title);
     event NewPool(uint256 _nextRunDate, bytes16 _title, uint256 indexed _poolIndex);
+    
     
     /**
      * Constructor inherits VRFConsumerBase
@@ -61,7 +63,8 @@ contract RandomNumberConsumer is VRFConsumerBase {
     }
     
     function addPool(uint256 _nextRunDate, uint _ownerPercentFee, bytes16 _title) public payable {
-        require(_ownerPercentFee < 99, "owner fee is too high")
+        require(_ownerPercentFee < 99, "owner fee is too high");
+        require(_nextRunDate < now + (365 * 1 days), "next run date must be less than one year in the future");
         poolCount = poolCount + 1;
         Pool storage _pool = pools[poolCount];
         
@@ -74,7 +77,6 @@ contract RandomNumberConsumer is VRFConsumerBase {
       
         emit NewPool(_nextRunDate, _title, poolCount);
     }
-    
     
     function addAddress(uint256 poolIndex) public payable {
         uint256 amount =  msg.value;
@@ -89,7 +91,7 @@ contract RandomNumberConsumer is VRFConsumerBase {
         }));
         
         pools[poolIndex].entryCount = pools[poolIndex].entryCount + 1;
-        pools[poolIndex].poolTotal = pools[poolIndex].poolTotal + amount;
+        pools[poolIndex].poolTotal = pools[poolIndex].poolTotal.add(amount);
         
         emit NewAddress(msg.sender, amount, poolIndex);
     }
@@ -113,35 +115,38 @@ contract RandomNumberConsumer is VRFConsumerBase {
         
         uint256 totalAmount = 0;
         for (uint i=0; i<_memPool.entries.length; i++) {
-          totalAmount = totalAmount + _memPool.entries[i].amount;
+          totalAmount = totalAmount.add(_memPool.entries[i].amount);
         }
         
         uint256 winningNumber = randomResult % totalAmount;
         uint256 runningAmount = 0;
         for (uint i=0; i<_memPool.entries.length; i++) {
-          runningAmount = runningAmount + _memPool.entries[i].amount;
+            
+          runningAmount = runningAmount.add(_memPool.entries[i].amount) ;
           if (runningAmount >= winningNumber ) {
               _memPool.winningAddress = _memPool.entries[i].adr;
               break;
           }
         }
         
-        uint256 _localContractOwnerFee = totalAmount / 100;
-        contractOwnerFee += _localContractOwnerFee;
+        uint256 _localContractOwnerFee =  totalAmount.div(100);
+        contractOwnerFee = contractOwnerFee.add(_localContractOwnerFee);
 
-        totalAmount = totalAmount - _localContractOwnerFee;
+        totalAmount = totalAmount.sub(_localContractOwnerFee);
         
-        uint256 ownerFee = totalAmount / (_memPool.ownerPercentFee * 100);
+        uint256 ownerFee = totalAmount.mul(_memPool.ownerPercentFee.div(100));
         _memPool.owner.transfer(ownerFee);
-        totalAmount = totalAmount - ownerFee;
+        totalAmount = totalAmount.sub(ownerFee);
         
         emit NewWinner(_memPool.winningAddress, totalAmount, _memPool.title);
         
         _memPool.winningAddress.transfer(totalAmount);
         pools[_memPool.index].active = false;
+        pools[randomMappings[requestId]].winningAddress = _memPool.winningAddress ;
+        pools[_memPool.index].randomResult = randomResult;
+
+        delete pools[randomMappings[requestId]].entries; 
         
-        delete pools[_memPool.index];
-        delete randomMappings[requestId];
     }
     
     function withdraw() public {

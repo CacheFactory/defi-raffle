@@ -73,9 +73,9 @@ const Main = ({
             onSubmit={handleCreatePoolSubmit}>
 
 
-            <div class="form-group row">
-              <label for="staticEmail" class="col-sm-6 col-form-label">Title</label>
-              <div class="col-sm-6">
+            <div className="form-group row">
+              <label for="staticEmail" className="col-sm-6 col-form-label">Title</label>
+              <div className="col-sm-6">
                 <input
                   type="text"
                   ref={titleRef}
@@ -86,9 +86,9 @@ const Main = ({
             </div>
 
 
-            <div class="form-group row">
-              <label for="staticEmail" class="col-sm-6 col-form-label">Run no earlier than date</label>
-              <div class="col-sm-6">
+            <div className="form-group row">
+              <label for="staticEmail" className="col-sm-6 col-form-label">Run no earlier than date</label>
+              <div className="col-sm-6">
                 <input
                   type="date"
                   ref={nextRunRef}
@@ -98,9 +98,9 @@ const Main = ({
               </div>
             </div>
 
-            <div class="form-group row">
-              <label for="staticEmail" class="col-sm-6 col-form-label">Percent fee of pool to creator</label>
-              <div class="col-sm-6">
+            <div className="form-group row">
+              <label for="staticEmail" className="col-sm-6 col-form-label">Percent fee of pool to creator</label>
+              <div className="col-sm-6">
                 <input
                   type="number"
                   ref={percentFeeRef}

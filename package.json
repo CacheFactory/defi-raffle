@@ -1,12 +1,9 @@
 {
-  "name": "defi-tutorial",
+  "name": "defi-raffle",
   "version": "0.1.0",
-  "description": "DeFi Token Staking App",
-  "author": "gregory@dappuniversity.com",
-  "contributors": [
-    "gregory@dappuniversity.com",
-    "Anton K. <antonkarlovskiy@outlook.com>"
-  ],
+  "description": "DeFi raffle",
+  "author": "ejanderson4@gmail.cpom",
+  "contributors": [],
   "dependencies": {
     "@chainlink/contracts": "^0.1.6",
     "@truffle/contract": "^4.3.11",
