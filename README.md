@@ -1,5 +1,5 @@
 
-# DeFi Demo
+# DeFi Raffle
 
 DApp developed using the following tech stacks:
 
@@ -23,8 +23,6 @@ $ npm install --g truffle@5.1.39 # If possible, use the same version for compati
 $ npm install # Or yarn install
 $ npm run truffle-compile # Compile smart contracts
 $ npm run truffle-migrate # (Or npm run truffle-migrate-reset) Deploy the compiled smart contracts
-$ npm run truffle-test # Run the automated tests to make sure of the behaviors of the smart contracts
 $ npm start # Run the UI website
 
-$ npm run truffle-issue-dapp-tokens # Issue Dapp tokens to the stakers
 ```
